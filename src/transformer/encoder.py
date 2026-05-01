@@ -29,7 +29,7 @@ class Encoder(nn.Module):
         self.norm2 = nn.LayerNorm(embeddingSize)
 
     def forward(self, x:torch.Tensor, mask:torch.Tensor):
-        attention = self.dropout.forward(self.attentionLayer.forward(x, x, x, mask))
+        attention = self.dropout(self.attentionLayer(x, x, x, mask))
         x = self.norm1(x + attention)
         ff = self.dropout(self.feedForward(x))
         return self.norm2(x + ff) 

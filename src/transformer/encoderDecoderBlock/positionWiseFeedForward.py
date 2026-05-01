@@ -16,10 +16,10 @@ class PositionWiseFeedForward(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x:torch.Tensor):
-        return self.f2.forward(self.relu.forward(self.f1.forward(x)))
+        return self.f2(self.relu(self.f1(x)))
     
 if __name__ == "__main__":
     positionalEncoder = PositionWiseFeedForward(512, 64)
     inp = torch.rand((16, 128, 512))
-    output = positionalEncoder.forward(inp)
+    output = positionalEncoder(inp)
     print("Input:", inp.size(), "Output:", output.size())

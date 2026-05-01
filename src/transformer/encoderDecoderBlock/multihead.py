@@ -62,9 +62,9 @@ class MultiHeadAttention(nn.Module):
     #     q, k, v = self.calculateQKV(x)
 
     def calculateQKV(self, Q:torch.Tensor, K:torch.Tensor, V:torch.Tensor):
-        q = self.queryWeights.forward(Q)
-        k = self.keyWeights.forward(K)
-        v = self.valueWeights.forward(V)
+        q = self.queryWeights(Q)
+        k = self.keyWeights(K)
+        v = self.valueWeights(V)
 
         return self.splitHeads(q), self.splitHeads(k), self.splitHeads(v)
     
@@ -84,7 +84,7 @@ class MultiHeadAttention(nn.Module):
     def forward(self, Q:torch.Tensor, K:torch.Tensor, V:torch.Tensor, mask:torch.Tensor|None=None):
         attention = self.calculateAttention(Q, K, V, mask)
         attention = self.combineHeads(attention)
-        return self.outputCombinerWeights.forward(attention) 
+        return self.outputCombinerWeights(attention) 
     
 
 
@@ -92,8 +92,8 @@ if __name__ == "__main__":
     mha = MultiHeadAttention(512, 8)
     inp = torch.rand((32, 128, 512)) # 32 batches of 128 words each of embedding size 512
     attentionScores = mha.calculateAttention(inp, inp, inp)
-    op1 = mha.outputCombinerWeights.forward(mha.combineHeads(attentionScores))
-    op2 = mha.forward(inp, inp, inp)
+    op1 = mha.outputCombinerWeights(mha.combineHeads(attentionScores))
+    op2 = mha(inp, inp, inp)
     
     assert op1.equal(op2)
 

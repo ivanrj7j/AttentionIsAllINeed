@@ -40,10 +40,10 @@ class Decoder(nn.Module):
             torch.Tensor: Decoded output
         """
         
-        selfAttention = self.dropout.forward(self.selfAttention.forward(x, x, x, targetMask))
-        x = self.norm1.forward(x + selfAttention)
-        crossAttention = self.dropout.forward(self.crossAttention.forward(x, encoderOutput, encoderOutput, sourceMask))
-        x = self.norm2.forward(x + crossAttention)
-        ff = self.dropout.forward(self.feedForward.forward(x))
+        selfAttention = self.dropout(self.selfAttention(x, x, x, targetMask))
+        x = self.norm1(x + selfAttention)
+        crossAttention = self.dropout(self.crossAttention(x, encoderOutput, encoderOutput, sourceMask))
+        x = self.norm2(x + crossAttention)
+        ff = self.dropout(self.feedForward(x))
         
-        return self.norm3.forward(x + ff)
+        return self.norm3(x + ff)
