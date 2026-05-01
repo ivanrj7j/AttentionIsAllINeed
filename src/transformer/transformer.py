@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import math
 class Transformer(nn.Module):
-    def __init__(self, numLayers:int, srcVocabSize:int, tgtVocabSize:int, embeddingSize:int, headCount:int, dff:int, dropout:float, maxSequenceLength:int) -> None:
+    def __init__(self, numLayers:int, srcVocabSize:int, tgtVocabSize:int, embeddingSize:int, headCount:int, dff:int, dropout:float, maxSequenceLength:int, device) -> None:
         super().__init__()
         self.encoderEmbedding = nn.Embedding(srcVocabSize, embeddingSize)
         self.decoderEmbedding = nn.Embedding(tgtVocabSize, embeddingSize)
@@ -25,12 +25,14 @@ class Transformer(nn.Module):
 
         self.embeddingSizeSQRT = math.sqrt(embeddingSize)
 
+        self.device = device
+
     def generateMask(self, src:torch.Tensor, tgt:torch.Tensor):
-        srcMask = (src != 0).unsqueeze(1).unsqueeze(2)
-        tgtMask = (tgt != 0).unsqueeze(1).unsqueeze(2)
+        srcMask = (src != 0).unsqueeze(1).unsqueeze(2).to(self.device)
+        tgtMask = (tgt != 0).unsqueeze(1).unsqueeze(2).to(self.device)
 
         sequenceLength = tgt.size(1)
-        noPeakMask = (1 - torch.triu(torch.ones((1, sequenceLength, sequenceLength)), diagonal=1)).bool()
+        noPeakMask = (1 - torch.triu(torch.ones((1, sequenceLength, sequenceLength)), diagonal=1)).bool().to(self.device)
 
         return srcMask, tgtMask & noPeakMask
     
