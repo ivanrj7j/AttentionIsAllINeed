@@ -1,40 +1,45 @@
 import torch 
-from transformer import Encoder, Decoder, Transformer
+import torch.nn as nn
+import torch.optim as optim
+from transformer import Transformer
 import time
 
-if __name__ == "__main__":
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(device)
-    encoder = Encoder(512, 8, 64, 0.3).to(device)
-    decoder = Decoder(512, 8, 64, 0.3).to(device)
-    inp = torch.rand(16, 128, 512).to(device)
-    mask = torch.ones((16, 1, 1, 128)).to(device)
+# Training on random data TODO: use real data to train
 
-    totalTime = 0
-    n = 30
-    for _ in range(n):
-        startTime = time.time()
-        enc = encoder.forward(inp, mask)
-        assert inp.size() == enc.size()
-        dec = decoder.forward(inp, enc, mask, mask)
-        assert enc.size() == dec.size()
-        totalTime += time.time() - startTime
+srcVocabSize = 3500
+tgtVocabSize = 4000
+embeddingSize = 256
+headCount = 4
+numLayers = 3
+dff = 128
+maxSeqLen = 100
+dropout = 0.1
 
-    
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cpu')
+print(device)
 
-    print("Total time:", round(totalTime, 2), "Average time:", round(totalTime/n, 2))
+transformer = Transformer(numLayers, srcVocabSize, tgtVocabSize, embeddingSize, headCount, dff, dropout, maxSeqLen, device).to(device)
 
-    maxSeqLen = 100
-    srcVocabSize, tgtVocabSize = 2000, 2000
-    transformer = Transformer(1, srcVocabSize, tgtVocabSize, 256, 4, 32, 0.3, maxSeqLen)
+# Generate random sample data
+srcData = torch.randint(1, srcVocabSize, (64, maxSeqLen)).to(device)  # (batch_size, maxSeqLen)
+tgtData = torch.randint(1, tgtVocabSize, (64, maxSeqLen)).to(device)  
 
-    srcData = torch.randint(1, srcVocabSize, (64, maxSeqLen)) # (batch of 64 with maxSeqLen tokens)
-    tgtData = torch.randint(1, tgtVocabSize, (64, maxSeqLen))
+criterion = nn.CrossEntropyLoss(ignore_index=0)
+optimizer = optim.Adam(transformer.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
 
-    startTime = time.time()
-    pred = transformer.forward(srcData, tgtData)
-    output = torch.softmax(pred, dim = -1)
-    timeTaken = time.time() - startTime
+transformer.train()
 
-    print("Transformer took", timeTaken, "seconds")
-    print(pred.size())
+totalTime = 0
+for epoch in range(100):
+    start = time.time()
+    optimizer.zero_grad()
+    output = transformer(srcData, tgtData[:, :-1])
+    loss = criterion(output.contiguous().view(-1, tgtVocabSize), tgtData[:, 1:].contiguous().view(-1))
+    loss.backward()
+    optimizer.step()
+    t = time.time() - start
+    totalTime += t
+    if epoch % 20 == 0:
+        print(f"Epoch: {epoch+1}, Loss: {round(loss.item(), 3)} ({t}s)")
+print(f"Total time {round(totalTime)}s Average time {round(totalTime/100, 3)}s")
