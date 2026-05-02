@@ -6,14 +6,15 @@ import time
 
 # Training on random data TODO: use real data to train
 
-srcVocabSize = 3500
+srcVocabSize = 4000
 tgtVocabSize = 4000
-embeddingSize = 256
-headCount = 4
-numLayers = 3
+embeddingSize = 512
+headCount = 8
+numLayers = 6
 dff = 128
-maxSeqLen = 100
+maxSeqLen = 64
 dropout = 0.1
+# around 3.5gb vram usage with this configuration
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
