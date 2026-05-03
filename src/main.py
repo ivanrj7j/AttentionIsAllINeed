@@ -4,9 +4,11 @@ import torch.optim as optim
 from transformer import Transformer
 from torch.utils.tensorboard import SummaryWriter
 from transformers import PreTrainedTokenizerFast
-from .dataset import TransformerDataset
-from uuid import uuid4
+from tqdm import tqdm
+from dataset import TransformerDataset
+import os
 import time
+import random 
 
 import config
 
@@ -36,13 +38,8 @@ criterion = nn.CrossEntropyLoss(ignore_index=0)
 optimizer = optim.Adam(transformer.parameters(), lr=config.LEARNING_RATE, betas=config.BETAS, eps=config.EPSILON)
 
 scaler = torch.amp.grad_scaler.GradScaler()
-
-transformer.train()
-
 totalTime = 0
-
-
-totalSteps = config.EPOCHS * config.STEPS_PER_EPOCH
+totalSteps = round(config.EPOCHS * config.TEST_BATCHES * 1.05)
 
 scheduler = optim.lr_scheduler.OneCycleLR(
     optimizer,
@@ -56,28 +53,146 @@ scheduler = optim.lr_scheduler.OneCycleLR(
 
 summaryWriter = SummaryWriter(config.SUMMARY_PATH)
 
-for epoch in range(config.EPOCHS):
-    start = time.time()
-    optimizer.zero_grad()
 
-    with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.float16):
-        output = transformer(srcData, tgtData[:, :-1])
-        loss = criterion(output.contiguous().view(-1, tgtVocabSize), tgtData[:, 1:].contiguous().view(-1))
+def get_random_translation_sample(srcBatch, tgtBatch, srcTokenizer, tgtTokenizer):
+    """
+    Takes a batch of tensors and returns a random (Source, Target) string pair.
+    """
+    # 1. Pick a random index from the batch (dim 0)
+    batch_size = srcBatch.size(0)
+    random_idx = random.randint(0, batch_size - 1)
 
-    scaler.scale(loss).backward()
-    scaler.step(optimizer)
-    scaler.update()
+    # 2. Extract the specific sequences and convert to list
+    # We move to CPU because tokenizers expect standard Python lists/arrays
+    src_ids = srcBatch[random_idx].cpu().tolist()
+    tgt_ids = tgtBatch[random_idx].cpu().tolist()
 
-    scheduler.step()
+    # 3. Decode back to strings
+    # skip_special_tokens=True removes <pad>, <bos>, <eos> automatically
+    src_text = srcTokenizer.decode(src_ids, skip_special_tokens=True)
+    tgt_text = tgtTokenizer.decode(tgt_ids, skip_special_tokens=True)
 
-    t = time.time() - start
-    totalTime += t
-    currentLR = optimizer.param_groups[0]['lr']
-    if epoch % 20 == 0:
-        print(f"Epoch: {epoch+1}, Loss: {round(loss.item(), 3)} ({t}s), LR: {currentLR:.2e}")
-        if epoch > 0:
-            torch.save(transformer.state_dict(), f'../checkpoints/transformer-{epoch+1}.pt')
-            # size of our current model is 101 mb
-    summaryWriter.add_scalar('Charts/lr', currentLR, epoch)
-    summaryWriter.add_scalar('Charts/loss', loss.item(), epoch)
-print(f"Total time {round(totalTime)}s Average time {round(totalTime/100, 3)}s")
+    return src_text.strip(), tgt_text.strip()
+# get_random_translation_sample is ai generated 
+
+def run_validation(model, dataloader, criterion, device, vocab_size, srcTokenizer, tgtTokenizer, summaryWriter, global_step, max_batches=100):
+    model.eval()
+    total_loss = 0
+    batches_processed = 0
+    
+    # Initialize as None
+    last_data = None
+
+    with torch.no_grad():
+        for i, (src, tgt) in enumerate(dataloader):
+            src, tgt = src.to(device), tgt.to(device)
+
+            with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.float16):
+                output = model(src, tgt[:, :-1])
+                loss = criterion(
+                    output.contiguous().view(-1, vocab_size), 
+                    tgt[:, 1:].contiguous().view(-1)
+                )
+
+            total_loss += loss.item()
+            batches_processed += 1
+            
+            # Pack them into a tuple
+            last_data = (src, tgt, output)
+            
+            if batches_processed >= max_batches:
+                break
+
+    # --- Sample Generation Logic ---
+    # Check if last_data exists
+    if last_data is not None:
+        # Unpack them here - Pylance now knows they aren't None
+        s_batch, t_batch, o_batch = last_data
+        
+        idx = random.randint(0, s_batch.size(0) - 1)
+        
+        # Decode using the unpacked tensors
+        src_str = srcTokenizer.decode(s_batch[idx].tolist(), skip_special_tokens=True)
+        tgt_str = tgtTokenizer.decode(t_batch[idx].tolist(), skip_special_tokens=True)
+        
+        # Use argmax on the output batch
+        pred_ids = o_batch[idx].argmax(dim=-1).tolist()
+        pred_str = tgtTokenizer.decode(pred_ids, skip_special_tokens=True)
+
+        # ... (rest of your logging code) ...
+        log_text = f"\n{'='*30}\n[VAL SAMPLE]\nSRC: {src_str}\nTGT: {tgt_str}\nPRD: {pred_str}\n{'='*30}"
+        print(log_text)
+        
+        tb_log = f"**Source:** {src_str}  \n**Target:** {tgt_str}  \n**Predicted:** {pred_str}"
+        summaryWriter.add_text('Validation/Samples', tb_log, global_step)
+
+    model.train()
+    return total_loss / batches_processed
+
+# run validation is ai generated method 
+
+# training on test data for the first time to see if the model trains properly before investing time in the wholedataset, these models will be discarded after run is verified 
+if __name__ == '__main__':
+    globalSteps = 0
+    print("[IMPORTANT, change the totalSteps when doing actual training] Training starting for", config.MODEL_ID, "Training on test data to see if everything is working properly")
+    for epoch in range(config.EPOCHS):
+        transformer.train()
+        
+        epochStart = time.time()
+        bar = tqdm(enumerate(testDataLoader), total=config.TEST_BATCHES, desc=f"Epoch {epoch+1}/{config.EPOCHS}")
+        for i, (srcBatch, tgtBatch) in bar:
+            if i >= config.TEST_BATCHES:
+                break
+            optimizer.zero_grad()
+            batchStart = time.time()
+            srcBatch, tgtBatch = srcBatch.to(config.TARGET_DEVICE), tgtBatch.to(config.TARGET_DEVICE)
+            with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.float16):
+                output = transformer(srcBatch, tgtBatch[:, :-1])
+                loss = criterion(output.contiguous().view(-1, config.TGT_VOCAB_SIZE), tgtBatch[:, 1:].contiguous().view(-1))
+            
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            
+            scheduler.step()
+            t = time.time() - batchStart
+            currentLR = optimizer.param_groups[0]['lr']
+            bar.set_postfix({
+                "loss": loss.item(),
+                "lr": currentLR
+            })
+            if globalSteps % config.LOG_EVERY == 0 and globalSteps > 0:
+                summaryWriter.add_scalar('Charts/BatchLR', currentLR, globalSteps)
+                summaryWriter.add_scalar('Charts/BatchLoss', loss.item(), globalSteps)
+                summaryWriter.add_scalar('Charts/BatchTime', t, globalSteps)
+
+            if globalSteps % config.TRANSLATE_EVERY == 0 and globalSteps > 0:
+                src_str, tgt_str = get_random_translation_sample(srcBatch, tgtBatch, srcTokenizer, tgtTokenizer)
+                tqdm.write(f"{src_str} -> {tgt_str}")
+                summaryWriter.add_text('Samples/Training', f"**EN:** {src_str}  \n**ML:** {tgt_str}", totalSteps)
+            globalSteps += 1
+
+        epochTime = time.time() - epochStart
+        if epoch % config.SAVE_MODEL_EVERY == 0 and config.EPOCHS > 1:
+            torch.save(transformer.state_dict(), os.path.join(config.CHECKPOINT_PATH, f'transformer-{epoch+1}.pt'))
+
+        summaryWriter.add_scalar('Charts/loss', loss.item(), epoch)
+        summaryWriter.add_scalar('Charts/time', epochTime)
+        summaryWriter.add_scalar('Charts/lr', currentLR)
+
+        valLoss = run_validation(
+                    transformer, 
+                    validationDataLoader, 
+                    criterion, 
+                    config.TARGET_DEVICE, 
+                    config.TGT_VOCAB_SIZE,
+                    srcTokenizer,    
+                    tgtTokenizer,    
+                    summaryWriter,   
+                    totalSteps,      
+                    max_batches=20
+                )
+        summaryWriter.add_scalar('Charts/valLoss', valLoss, epoch)
+
+
+    torch.save(transformer.state_dict(), os.path.join(config.CHECKPOINT_PATH, 'transformer-final.pt'))

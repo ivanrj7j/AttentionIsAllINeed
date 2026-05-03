@@ -5,10 +5,11 @@ MODEL_ID = str(uuid4())
 # MODEL_ID = ""
 # uncomment this to add custom model id 
 
-EPOCHS = 5
-STEPS_PER_EPOCH = 1
+EPOCHS = 1
 BATCH_SIZE = 64
-SAVE_MODEL_EVERY = 2
+SAVE_MODEL_EVERY = 1 # save model every n epochs
+LOG_EVERY = 10 # save log every n batches
+TRANSLATE_EVERY = 200 #save a translation every n batches
 # training info 
 
 LEARNING_RATE = 1e-4
@@ -22,14 +23,14 @@ DIV_FACTOR = 10
 FINAL_DIV_FACTOR = 1e4
 # scheduler info 
 
-SRC_VOCAB_SIZE = 4000
-TGT_VOCAB_SIZE = 4000
+SRC_VOCAB_SIZE = 9000
+TGT_VOCAB_SIZE = 9000
 EMBEDDING_SIZE = 512
 HEAD_COUNT = 8
 NUM_LAYERS = 6
-DFF = 128
-MAX_SEQ_LEN = 64
-DROPOUT = 0.1
+DFF = 2048
+MAX_SEQ_LEN = 66
+DROPOUT = 0.4
 # model info 
 
 TARGET_DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -52,3 +53,8 @@ TGT_TOKENIZER = "../dataset/malTokenizer.json"
 # tokenizers path
 
 SUMMARY_PATH = f'../runs/{MODEL_ID}_transformer'
+CHECKPOINT_PATH = '../checkpoints/'
+
+TRAIN_BATCHES = 76000
+VALID_BATCHES = 9000
+TEST_BATCHES = 4500
