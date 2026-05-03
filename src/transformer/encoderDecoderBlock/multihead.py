@@ -74,7 +74,8 @@ class MultiHeadAttention(nn.Module):
         qk = torch.matmul(q, k.transpose(-2, -1)).div(self.itemsPerHeadSRQT)
 
         if mask is not None:
-            qk = qk.masked_fill(mask == 0, -1e9)
+            minValue = torch.finfo(qk.dtype).min
+            qk = qk.masked_fill(mask == 0, minValue)
             # Mask will be a matrix of 1's and zeros if we are provided with a mask, we will be changing the parts with 0 in the mask to -1e9
 
         attentionProbability = torch.softmax(qk, dim=-1)
