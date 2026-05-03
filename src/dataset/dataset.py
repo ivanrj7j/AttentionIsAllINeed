@@ -63,13 +63,14 @@ class TransformerDataset(IterableDataset):
             if len(srcBuffer) > 0:
                 yield from self.__shuffledProcess(srcBuffer, tgtBuffer)
 
-
+    def getDataLoader(self, batchSize:int, nWorkers:int) -> DataLoader:
+        return DataLoader(dataset=self, batch_size=batchSize, num_workers=nWorkers, pin_memory=True, drop_last=True)
 
 if __name__ == "__main__":
     import time
 
-    srcFile = '../../dataset/engTest.txt'
-    tgtFile = '../../dataset/malTest.txt'
+    srcFile = '../../dataset/engTrain.txt'
+    tgtFile = '../../dataset/malTrain.txt'
 
     srcTokenizer = PreTrainedTokenizerFast(tokenizer_file='../../dataset/engTokenizer.json',  
                                  bos_token="<bos>", 
@@ -83,7 +84,11 @@ if __name__ == "__main__":
                                  unk_token="<unk>")
 
     dataset = TransformerDataset(srcFile, tgtFile, 64 + 2, 1000, srcTokenizer, tgtTokenizer)
+    loader = dataset.getDataLoader(64, 5)
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    """
     print("Starting the dataset")
 
     startTime = time.time()
@@ -98,3 +103,45 @@ if __name__ == "__main__":
     # Train: Total time to consume 4884066 datapoints: 202s. Average time: 4.145243995640283e-05s
     # Validation: Total time to consume 576604 datapoints: 24s. Average time: 4.1719547734728726e-05s
     # Test: Total time to consume 287624 datapoints: 12s. Average time: 4.1570987860039006e-05s
+    """
+
+    print("Starting the dataloader")
+    iterations = 0
+    startTime = time.time()
+    for i, (srcBatch, tgtBatch) in enumerate(loader):
+        srcBatch.to(device)
+        tgtBatch.to(device)
+        x = srcBatch + tgtBatch
+        iterations += 1
+        if i % 156 == 0:
+            print(f"{i+1} Batches", end="\r")
+    total = time.time() - startTime
+    print(f"Total time to consume {iterations} batches: {round(total)}s. Average time: {total/iterations}s")
+    # Number of workers = 4
+    # Test: Total time to consume 4492 batches: 20s. Average time: 0.0044110886029441335s
+    # Validation: Total time to consume 9008 batches: 25s. Average time: 0.002754582102091232s
+    # Train: Total time to consume 76312 batches: 126s. Average time: 0.001647827838099294s
+
+    # Number of workers = 6
+    # Train: Total time to consume 76308 batches: 127s. Average time: 0.0016587930929925123s
+    # Validation: Total time to consume 9006 batches: 30s. Average time: 0.003365322401490234s
+    # Test: Total time to consume 4494 batches: 24s. Average time: 0.005404491927499606s
+    
+    # Number of workers = 2
+    # Test: Total time to consume 4494 batches: 15s. Average time: 0.003398890170618116s
+    # Validation: Total time to consume 9008 batches: 24s. Average time: 0.00269696923703961s
+    # Train: Total time to consume 76312 batches: 160s. Average time: 0.002096151465801763s
+
+    # Number of workers for validation and testing: 2
+
+    # Further tests needed to decide number of workers for training data
+    
+    # Number of workers = 3
+    # Train: Total time to consume 76311 batches: 134s. Average time: 0.0017562201159602544s
+
+    # Number of workers = 5
+    # Train: Total time to consume 76310 batches: 125s. Average time: 0.0016363617883661506s
+
+    # Final
+    # Train: 5 workers
+    # Validation and Testing: 2 workers
