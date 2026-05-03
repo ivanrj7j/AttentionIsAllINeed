@@ -39,7 +39,7 @@ optimizer = optim.Adam(transformer.parameters(), lr=config.LEARNING_RATE, betas=
 
 scaler = torch.amp.grad_scaler.GradScaler()
 totalTime = 0
-totalSteps = round(config.EPOCHS * config.TEST_BATCHES * 1.05)
+totalSteps = round(config.EPOCHS * config.TRAIN_BATCHES * 1.05)
 
 scheduler = optim.lr_scheduler.OneCycleLR(
     optimizer,
@@ -134,14 +134,13 @@ def run_validation(model, dataloader, criterion, device, vocab_size, srcTokenize
 # training on test data for the first time to see if the model trains properly before investing time in the wholedataset, these models will be discarded after run is verified 
 if __name__ == '__main__':
     globalSteps = 0
-    print("[IMPORTANT, change the totalSteps when doing actual training] Training starting for", config.MODEL_ID, "Training on test data to see if everything is working properly")
     for epoch in range(config.EPOCHS):
         transformer.train()
         
         epochStart = time.time()
-        bar = tqdm(enumerate(testDataLoader), total=config.TEST_BATCHES, desc=f"Epoch {epoch+1}/{config.EPOCHS}")
+        bar = tqdm(enumerate(trainingDataLoader), total=config.TRAIN_BATCHES, desc=f"Epoch {epoch+1}/{config.EPOCHS}")
         for i, (srcBatch, tgtBatch) in bar:
-            if i >= config.TEST_BATCHES:
+            if i >= config.TRAIN_BATCHES:
                 break
             optimizer.zero_grad()
             batchStart = time.time()
