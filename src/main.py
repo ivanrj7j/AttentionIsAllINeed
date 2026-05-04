@@ -136,7 +136,6 @@ def run_validation(model, dataloader, criterion, device, vocab_size, srcTokenize
 if __name__ == '__main__':
     globalSteps = 0
 
-        
     # Load one fixed batch for quick "live" checks
     val_iter = iter(validationDataLoader)
     fixed_val_src, fixed_val_tgt = next(val_iter)
@@ -159,6 +158,12 @@ if __name__ == '__main__':
                 loss = criterion(output.contiguous().view(-1, config.TGT_VOCAB_SIZE), tgtBatch[:, 1:].contiguous().view(-1))
             
             scaler.scale(loss).backward()
+            # Unscales the gradients of optimizer's assigned params in-place
+            scaler.unscale_(optimizer)
+
+            # Clip the gradients (Max norm of 1.0 is standard)
+            torch.nn.utils.clip_grad_norm_(transformer.parameters(), max_norm=1.0)
+
             scaler.step(optimizer)
             scaler.update()
             

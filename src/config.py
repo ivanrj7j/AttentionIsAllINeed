@@ -17,7 +17,7 @@ BETAS = (0.9, 0.98)
 EPSILON = 1e-9
 # optimizer info
 
-PCT_START = 0.1
+PCT_START = 0.25
 ANNEAL_STRATEGY = 'cos'
 DIV_FACTOR = 10
 FINAL_DIV_FACTOR = 1e4
@@ -30,7 +30,7 @@ HEAD_COUNT = 8
 NUM_LAYERS = 6
 DFF = 2048
 MAX_SEQ_LEN = 66
-DROPOUT = 0.4
+DROPOUT = 0.1
 # model info 
 
 TARGET_DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
