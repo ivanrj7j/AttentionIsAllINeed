@@ -37,7 +37,7 @@ testDataLoader = trainingDataset.getDataLoader(config.BATCH_SIZE, config.TEST_WO
 criterion = nn.CrossEntropyLoss(ignore_index=0)
 optimizer = optim.Adam(transformer.parameters(), lr=config.LEARNING_RATE, betas=config.BETAS, eps=config.EPSILON)
 
-# scaler = torch.amp.grad_scaler.GradScaler()
+scaler = torch.amp.grad_scaler.GradScaler()
 totalTime = 0
 totalSteps = round(config.EPOCHS * config.TRAIN_BATCHES * 1.05)
 
@@ -87,7 +87,7 @@ def run_validation(model, dataloader, criterion, device, vocab_size, srcTokenize
         for i, (src, tgt) in enumerate(dataloader):
             src, tgt = src.to(device), tgt.to(device)
 
-            with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.bfloat16):
+            with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.float16):
                 output = model(src, tgt[:, :-1])
                 loss = criterion(
                     output.contiguous().view(-1, vocab_size), 
@@ -153,7 +153,7 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             batchStart = time.time()
             srcBatch, tgtBatch = srcBatch.to(config.TARGET_DEVICE), tgtBatch.to(config.TARGET_DEVICE)
-            with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.bfloat16):
+            with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.float16):
                 output = transformer(srcBatch, tgtBatch[:, :-1])
                 loss = criterion(output.contiguous().view(-1, config.TGT_VOCAB_SIZE), tgtBatch[:, 1:].contiguous().view(-1))
             
@@ -172,17 +172,17 @@ if __name__ == '__main__':
                 optimizer.zero_grad()
                 continue
 
-            # scaler.scale(loss).backward()
+            scaler.scale(loss).backward()
             # Unscales the gradients of optimizer's assigned params in-place
-            # scaler.unscale_(optimizer)
-            loss.backward()
+            scaler.unscale_(optimizer)
+            # loss.backward()
 
             # Clip the gradients (Max norm of 1.0 is standard)
             torch.nn.utils.clip_grad_norm_(transformer.parameters(), max_norm=1.0)
 
-            # scaler.step(optimizer)
-            # scaler.update()
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
+            # optimizer.step()
             scheduler.step()
             t = time.time() - batchStart
             currentLR = optimizer.param_groups[0]['lr']
@@ -202,7 +202,7 @@ if __name__ == '__main__':
                     idx = random.randint(0, fixed_val_src.size(0) - 1)
                     s_ten, t_ten = fixed_val_src[idx:idx+1], fixed_val_tgt[idx:idx+1]
 
-                    with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.bfloat16):
+                    with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.float16):
                         output = transformer(s_ten, t_ten[:, :-1])
                     
                     # Decode and clean strings
