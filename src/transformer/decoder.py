@@ -41,9 +41,9 @@ class Decoder(nn.Module):
         """
         
         selfAttention = self.dropout(self.selfAttention(x, x, x, targetMask))
-        x = self.norm1(x + selfAttention)
+        x = x + self.norm1(selfAttention)
         crossAttention = self.dropout(self.crossAttention(x, encoderOutput, encoderOutput, sourceMask))
-        x = self.norm2(x + crossAttention)
+        x = x + self.norm2(crossAttention)
         ff = self.dropout(self.feedForward(x))
         
         return self.norm3(x + ff)

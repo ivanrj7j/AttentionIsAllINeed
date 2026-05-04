@@ -12,9 +12,9 @@ LOG_EVERY = 10 # save log every n batches
 TRANSLATE_EVERY = 200 #save a translation every n batches
 # training info 
 
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 5e-5
 BETAS = (0.9, 0.98)
-EPSILON = 1e-9
+EPSILON = 1e-8
 # optimizer info
 
 PCT_START = 0.25
