@@ -131,9 +131,18 @@ def run_validation(model, dataloader, criterion, device, vocab_size, srcTokenize
 
 # run validation is ai generated method 
 
+
 # training on test data for the first time to see if the model trains properly before investing time in the wholedataset, these models will be discarded after run is verified 
 if __name__ == '__main__':
     globalSteps = 0
+
+        
+    # Load one fixed batch for quick "live" checks
+    val_iter = iter(validationDataLoader)
+    fixed_val_src, fixed_val_tgt = next(val_iter)
+    fixed_val_src = fixed_val_src.to(config.TARGET_DEVICE)
+    fixed_val_tgt = fixed_val_tgt.to(config.TARGET_DEVICE)
+    
     for epoch in range(config.EPOCHS):
         transformer.train()
         
@@ -166,9 +175,26 @@ if __name__ == '__main__':
                 summaryWriter.add_scalar('Charts/BatchTime', t, globalSteps)
 
             if globalSteps % config.TRANSLATE_EVERY == 0 and globalSteps > 0:
-                src_str, tgt_str = get_random_translation_sample(srcBatch, tgtBatch, srcTokenizer, tgtTokenizer)
-                tqdm.write(f"{src_str} -> {tgt_str}")
-                summaryWriter.add_text('Samples/Training', f"**EN:** {src_str}  \n**ML:** {tgt_str}", totalSteps)
+                transformer.eval()
+                with torch.no_grad():
+                    # Pick a random sample from our pre-loaded batch
+                    idx = random.randint(0, fixed_val_src.size(0) - 1)
+                    s_ten, t_ten = fixed_val_src[idx:idx+1], fixed_val_tgt[idx:idx+1]
+
+                    with torch.amp.autocast_mode.autocast(device_type='cuda', dtype=torch.float16):
+                        output = transformer(s_ten, t_ten[:, :-1])
+                    
+                    # Decode and clean strings
+                    src_str = srcTokenizer.decode(s_ten[0].tolist(), skip_special_tokens=True)
+                    tgt_str = tgtTokenizer.decode(t_ten[0].tolist(), skip_special_tokens=True)
+                    pred_str = tgtTokenizer.decode(output.argmax(dim=-1)[0].tolist(), skip_special_tokens=True)
+
+                    # Single-line output to keep the terminal clean
+                    print(f"Step {globalSteps} | SRC: {src_str[:40]}... | PRD: {pred_str[:40]}...")
+                    
+                    summaryWriter.add_text('Samples/Validation', f"**SRC:** {src_str}  \n**TGT:** {tgt_str}  \n**PRD:** {pred_str}", globalSteps)
+
+                transformer.train()
             globalSteps += 1
 
         epochTime = time.time() - epochStart

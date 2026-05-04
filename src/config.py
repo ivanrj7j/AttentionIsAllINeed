@@ -44,7 +44,7 @@ SRC_FILE_VAL = '../dataset/engVal.txt'
 TGT_FILE_VAL = '../dataset/malVal.txt'
 MAX_SENTENCE_SIZE = 66
 BUFFER_SIZE = 1000
-TRAIN_WORKERS = 5
+TRAIN_WORKERS = 4
 TEST_WORKERS, VALIDATION_WORKERS = 2, 2
 # data loader info 
 
