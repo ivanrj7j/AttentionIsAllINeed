@@ -30,6 +30,6 @@ class Encoder(nn.Module):
 
     def forward(self, x:torch.Tensor, mask:torch.Tensor):
         attention = self.dropout(self.attentionLayer(x, x, x, mask))
-        x = self.norm1(x + attention)
+        x = x + self.norm1(attention)
         ff = self.dropout(self.feedForward(x))
-        return self.norm2(x + ff) 
+        return x + self.norm2(ff) 
