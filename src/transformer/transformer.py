@@ -53,3 +53,9 @@ class Transformer(nn.Module):
         # going through each decoder 
 
         return self.linear(decOutput)
+    
+    def getEmbeddingLayers(self):
+        return (
+                nn.Sequential(self.encoderEmbedding, self.positionalEncoder),
+                nn.Sequential(self.decoderEmbedding, self.positionalEncoder)
+            )
