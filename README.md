@@ -58,6 +58,37 @@ If you want to run on Kaggle or another hosted GPU/TPU service, follow the noteb
 
 A trained model checkpoint can be downloaded from the GitHub Releases section once it is published. Look for the latest release artifact and download the `.pt` checkpoint file for inference or further fine-tuning.
 
+## Embedding Layers
+
+The repository includes an embedding helper in `src/embedding/embeddingLayer.py` and a usage example in `src/testingEmbedding.py`.
+
+- `src/embedding/embeddingLayer.py` wraps a transformer embedding + positional encoder block and converts raw text into vector embeddings.
+- `src/testingEmbedding.py` demonstrates loading `model/translator-model.pt`, extracting embedding layers via `transformer.getEmbeddingLayers()`, and computing embeddings from English or Malayalam text.
+
+Usage example:
+
+```python
+from transformer import Transformer
+from embedding import EmbeddingLayer
+from transformers import PreTrainedTokenizerFast
+import torch
+
+transformer = Transformer(...)
+transformer.load_state_dict(torch.load('../model/translator-model.pt'))
+engEmbedding, malEmbedding = transformer.getEmbeddingLayers()
+
+engTokenizer = PreTrainedTokenizerFast(tokenizer_file='../dataset/engTokenizer.json', bos_token='<bos>', eos_token='<eos>', pad_token='<pad>', unk_token='<unk>')
+english = EmbeddingLayer(engEmbedding, engTokenizer, torch.device('cpu'), 66)
+emb = english(['Hello world!'], 'FIRST')
+```
+
+The `EmbeddingLayer` supports two methods:
+
+- `AVG`: mean pooling over all token embeddings
+- `FIRST`: use the first token embedding
+
+Embedding layer files can also be published as release artifacts on GitHub, so model and layer downloads are available from the Releases section.
+
 ## Kaggle / TPU Training Notes
 
 This project was trained once using the available training data. After the first full run, another training pass was started over approximately half of the dataset, but the TPU crashed before that second pass completed.
