@@ -7,10 +7,11 @@ import config
 
 print("Loading transformer...")
 transformer = Transformer(config.NUM_LAYERS, config.SRC_VOCAB_SIZE, config.TGT_VOCAB_SIZE, config.EMBEDDING_SIZE, config.HEAD_COUNT, config.DFF, config.DROPOUT, config.MAX_SENTENCE_SIZE, 'cpu')
+transformer = torch.nn.DataParallel(transformer)
 transformer.load_state_dict(torch.load('../model/translator-model.pt'))
 
 print("Loading tokenizers...")
-engEmbedding, malEmbedding = transformer.getEmbeddingLayers()
+engEmbedding, malEmbedding = transformer.module.getEmbeddingLayers()
 engTokenizer = PreTrainedTokenizerFast(tokenizer_file='../dataset/engTokenizer.json',  
                                  bos_token="<bos>", 
                                  eos_token="<eos>",
