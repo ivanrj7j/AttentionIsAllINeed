@@ -8,7 +8,53 @@ This repository is a personal learning project to build a transformer-based Engl
 
 The codebase is intentionally minimal and handcrafted. It is not a production-level system, but it is a working proof-of-concept transformer implementation that covers the core building blocks of encoder-decoder translation.
 
+## Using the Translator
+
+To use the pre-trained translator for English-to-Malayalam translation:
+
+1. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Download the model**: Get the latest model checkpoint (trained for 2 epochs) from the GitHub Releases section. Download `translator-model.pt`.
+
+3. **Load the model with DataParallel** (since the weights are wrapped):
+   ```python
+   import torch
+   from transformer import Transformer
+   import config
+
+   # Load the model
+   model = Transformer(config.NUM_LAYERS, config.SRC_VOCAB_SIZE, config.TGT_VOCAB_SIZE, config.EMBEDDING_SIZE, config.HEAD_COUNT, config.DFF, config.DROPOUT, config.MAX_SEQ_LEN, config.TARGET_DEVICE)
+   
+   # Wrap with DataParallel to match saved weights
+   model = torch.nn.DataParallel(model)
+   model.load_state_dict(torch.load('path/to/translator-model.pt', map_location=config.TARGET_DEVICE))
+   model.eval()
+   ```
+
+4. **Load tokenizers**:
+   ```python
+   from transformers import PreTrainedTokenizerFast
+
+   src_tokenizer = PreTrainedTokenizerFast(tokenizer_file='dataset/engTokenizer.json', bos_token='<bos>', eos_token='<eos>', pad_token='<pad>', unk_token='<unk>')
+   tgt_tokenizer = PreTrainedTokenizerFast(tokenizer_file='dataset/malTokenizer.json', bos_token='<bos>', eos_token='<eos>', pad_token='<pad>', unk_token='<unk>')
+   ```
+
+5. **Create translator instance and translate**:
+   ```python
+   from translator import Translator  # Assuming Translator class exists
+
+   translator = Translator(model, src_tokenizer, tgt_tokenizer, config.MAX_SEQ_LEN, config.TARGET_DEVICE)
+   translation = translator.translate("Hello world!")
+   print(translation)
+   ```
+
+This will output the Malayalam translation. Note that the model is trained for only 2 epochs, so translations may be basic.
+
 ## Model Details
+
 
 The model is configured in `src/config.py`. Key settings include:
 
